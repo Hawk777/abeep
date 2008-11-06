@@ -102,10 +102,6 @@ static void init(void) {
 		fputs("Cannot set period count.\n", stderr);
 		exit(EXIT_FAILURE);
 	}
-	if (snd_pcm_hw_params_set_buffer_size_last(pcm_handle, hwparams, &buffer_size) < 0) {
-		fputs("Cannot set buffer size to maximum.\n", stderr);
-		exit(EXIT_FAILURE);
-	}
 	direction = 0;
 	if (snd_pcm_hw_params_set_period_size_last(pcm_handle, hwparams, &buffer_size, &direction) < 0) {
 		fputs("Cannot set period size to maximum.\n", stderr);
