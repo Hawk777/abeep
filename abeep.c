@@ -276,7 +276,7 @@ static void play_silence(snd_pcm_uframes_t length) {
 
 static void play_blocks(const beep_parms_t *parms) {
 	snd_pcm_uframes_t duration_in_frames;
-	unsigned int i;
+	int i;
 
 	while (parms) {
 		for (i = 0; i < parms->reps; i++) {
