@@ -51,11 +51,11 @@ typedef struct beep_parms_t {
 } beep_parms_t;
 
 
-snd_pcm_t *pcm_handle = 0;
-int16_t *buffer = 0;
-snd_pcm_uframes_t buffer_size;
-snd_pcm_uframes_t buffer_used = 0;
-unsigned int sample_rate = 44100;
+static snd_pcm_t *pcm_handle = 0;
+static int16_t *buffer = 0;
+static snd_pcm_uframes_t buffer_size;
+static snd_pcm_uframes_t buffer_used = 0;
+static unsigned int sample_rate = 44100;
 
 
 /* print usage and exit */

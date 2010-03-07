@@ -1,5 +1,5 @@
 CC=gcc
-FLAGS=-Wall
+FLAGS=-Wall -Wextra
 EXEC_NAME=abeep
 INSTALL_DIR=/usr/bin
 
