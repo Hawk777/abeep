@@ -53,7 +53,7 @@ typedef struct beep_parms_t {
 
 static snd_pcm_t *pcm_handle = 0;
 static int16_t *buffer = 0;
-static snd_pcm_uframes_t buffer_size;
+static snd_pcm_uframes_t buffer_size = 0;
 static snd_pcm_uframes_t buffer_used = 0;
 static unsigned int sample_rate = 44100;
 
