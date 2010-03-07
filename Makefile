@@ -8,7 +8,7 @@ default : abeep
 clean :
 	rm ${EXEC_NAME}
 
-abeep : abeep.c sintable.c
+abeep : abeep.c sintable.c sintable.h
 	${CC} ${FLAGS} -o ${EXEC_NAME} abeep.c sintable.c -lasound
 
 install : abeep
