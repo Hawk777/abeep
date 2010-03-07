@@ -209,6 +209,7 @@ static void build_blocks(beep_parms_t *parms) {
 		for (i = 0; i < parms->blk_frames; i++) {
 			fraction_of_period = ((double) i) / (parms->blk_frames - 1) * PERIODS_PER_BLOCK;
 			fraction_of_period -= floor(fraction_of_period);
+#if 0
 			if (fraction_of_period < 0.25)
 				parms->blk[i] =  SINTABLE[(unsigned int) (fraction_of_period         * 4 * (SINTABLE_SIZE - 1))];
 			else if (fraction_of_period < 0.5)
@@ -217,6 +218,8 @@ static void build_blocks(beep_parms_t *parms) {
 				parms->blk[i] = -SINTABLE[(unsigned int) ((fraction_of_period - 0.5) * 4 * (SINTABLE_SIZE - 1))];
 			else
 				parms->blk[i] = -SINTABLE[(unsigned int) ((1.0 - fraction_of_period) * 4 * (SINTABLE_SIZE - 1))];
+#endif
+			parms->blk[i] = sintable((unsigned int) (fraction_of_period * SINTABLE_SIZE));
 		}
 		parms = parms->next;
 	}
