@@ -35,8 +35,6 @@
 #define NO_END_DELAY      0
 #define YES_END_DELAY     1
 
-#define PERIODS_PER_BLOCK 20 /* number of periods in a single tone's block */
-
 
 
 typedef struct beep_parms_t {
@@ -45,8 +43,6 @@ typedef struct beep_parms_t {
 	int reps;                     /* # of repetitions */
 	int delay;                    /* delay between reps (ms) */
 	int end_delay;                /* do we delay after last rep? */
-	int16_t *blk;                 /* a block of samples */
-	snd_pcm_uframes_t blk_frames; /* the number of frames in "blk" */
 	struct beep_parms_t *next;    /* in case -n/--new is used. */
 } beep_parms_t;
 
@@ -56,6 +52,7 @@ static int16_t *buffer = 0;
 static snd_pcm_uframes_t buffer_size = 0;
 static snd_pcm_uframes_t buffer_used = 0;
 static unsigned int sample_rate = 44100;
+static uint64_t nco_accumulator = 0;
 
 
 /* print usage and exit */
@@ -199,33 +196,6 @@ static void parse_command_line(int argc, char **argv, beep_parms_t *result) {
 }
 
 
-static void build_blocks(beep_parms_t *parms) {
-	snd_pcm_uframes_t i;
-	double fraction_of_period;
-
-	while (parms) {
-		parms->blk_frames = (snd_pcm_uframes_t) (1.0 / parms->freq * sample_rate * PERIODS_PER_BLOCK);
-		parms->blk = malloc(sizeof(int16_t) * parms->blk_frames);
-		for (i = 0; i < parms->blk_frames; i++) {
-			fraction_of_period = ((double) i) / (parms->blk_frames - 1) * PERIODS_PER_BLOCK;
-			fraction_of_period -= floor(fraction_of_period);
-#if 0
-			if (fraction_of_period < 0.25)
-				parms->blk[i] =  SINTABLE[(unsigned int) (fraction_of_period         * 4 * (SINTABLE_SIZE - 1))];
-			else if (fraction_of_period < 0.5)
-				parms->blk[i] =  SINTABLE[(unsigned int) ((0.5 - fraction_of_period) * 4 * (SINTABLE_SIZE - 1))];
-			else if (fraction_of_period < 0.75)
-				parms->blk[i] = -SINTABLE[(unsigned int) ((fraction_of_period - 0.5) * 4 * (SINTABLE_SIZE - 1))];
-			else
-				parms->blk[i] = -SINTABLE[(unsigned int) ((1.0 - fraction_of_period) * 4 * (SINTABLE_SIZE - 1))];
-#endif
-			parms->blk[i] = sintable((unsigned int) (fraction_of_period * SINTABLE_SIZE));
-		}
-		parms = parms->next;
-	}
-}
-
-
 static void send_buffer_to_card(void) {
 	snd_pcm_sframes_t ret;
 
@@ -245,55 +215,40 @@ static void send_buffer_to_card(void) {
 }
 
 
-static void play_buffered(const void *data, snd_pcm_uframes_t length) {
-	const int16_t *ptr = data;
-	snd_pcm_uframes_t buffer_avail, tocopy;
-
-	while (length) {
-		while (buffer_used == buffer_size)
-			send_buffer_to_card();
-		buffer_avail = buffer_size - buffer_used;
-		tocopy = length < buffer_avail ? length : buffer_avail;
-		memcpy(buffer + buffer_used, ptr, tocopy * sizeof(int16_t));
-		buffer_used += tocopy;
-		ptr += tocopy;
-		length -= tocopy;
-	}
+static void play_sample(int16_t sample) {
+	while (buffer_used == buffer_size)
+		send_buffer_to_card();
+	buffer[buffer_used++] = sample;
 }
 
 
-static void play_silence(snd_pcm_uframes_t length) {
-	snd_pcm_uframes_t buffer_avail, tofill;
+static void play_fcw(uint64_t fcw, unsigned int samples) {
+	unsigned int index;
 
-	while (length) {
-		while (buffer_used == buffer_size)
-			send_buffer_to_card();
-		buffer_avail = buffer_size - buffer_used;
-		tofill = length < buffer_avail ? length : buffer_avail;
-		memset(buffer + buffer_used, 0, tofill * sizeof(int16_t));
-		buffer_used += tofill;
-		length -= tofill;
+	while (samples--) {
+		nco_accumulator += fcw;
+		/* accumulator is 64 bits, sintable is 256k, uses upper 18 bits for addressing, lower 46 for rounding */
+		index = (nco_accumulator + UINT64_C(0x200000000000)) >> 46;
+		play_sample(sintable(index));
 	}
+}
+
+static void play_frequency(double frequency, unsigned int samples) {
+	play_fcw(frequency * SINTABLE_SIZE / sample_rate * UINT64_C(0x400000000000), samples);
 }
 
 
 static void play_blocks(const beep_parms_t *parms) {
-	snd_pcm_uframes_t duration_in_frames;
 	int i;
 
 	while (parms) {
 		for (i = 0; i < parms->reps; i++) {
 			/* play the tone for the requisite amount of time. */
-			duration_in_frames = (parms->length * sample_rate + 500) / 1000;
-			while (duration_in_frames > parms->blk_frames) {
-				play_buffered(parms->blk, parms->blk_frames);
-				duration_in_frames -= parms->blk_frames;
-			}
-			play_buffered(parms->blk, duration_in_frames);
+			play_frequency(parms->freq, (parms->length * sample_rate + 500) / 1000);
 
 			/* play silence for the requisite amount of time, IF this is not the last rep or if we have an end delay. */
-			if (i < parms->reps - 1 || parms->end_delay)
-				play_silence((parms->delay * sample_rate + 500) / 1000);
+			if (i + 1 < parms->reps || parms->end_delay)
+				play_frequency(0, (parms->delay * sample_rate + 500) / 1000);
 		}
 		parms = parms->next;
 	}
@@ -320,7 +275,6 @@ int main(int argc, char **argv) {
 	init();
 
 	parse_command_line(argc, argv, parms);
-	build_blocks(parms);
 	play_blocks(parms);
 
 	cleanup();
