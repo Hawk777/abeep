@@ -53,6 +53,7 @@ static snd_pcm_uframes_t buffer_size = 0;
 static snd_pcm_uframes_t buffer_used = 0;
 static unsigned int sample_rate = 44100;
 static uint64_t nco_accumulator = 0;
+static uint64_t last_fcw = 0;
 
 
 /* print usage and exit */
@@ -231,10 +232,42 @@ static void play_fcw(uint64_t fcw, unsigned int samples) {
 		index = (nco_accumulator + UINT64_C(0x200000000000)) >> 46;
 		play_sample(sintable(index));
 	}
+
+	last_fcw = fcw;
 }
 
+
+static void play_silence(unsigned int samples) {
+	unsigned int index;
+
+	/* eliminate DC offset by ramping sample level towards zero */
+	while (samples--) {
+		nco_accumulator += last_fcw;
+		/* accumulator is 64 bits, sintable is 256k, uses upper 18 bits for addressing, lower 46 for rounding */
+		index = (nco_accumulator + UINT64_C(0x200000000000)) >> 46;
+		if (abs(sintable(index)) < 1000) {
+			++samples;
+			break;
+		}
+		play_sample(sintable(index));
+	}
+
+	if (samples) {
+		/* now just play the rest of the samples as plain silence */
+		nco_accumulator = 0;
+		while (samples--)
+			play_sample(0);
+	}
+}
+
+
 static void play_frequency(double frequency, unsigned int samples) {
-	play_fcw(frequency * SINTABLE_SIZE / sample_rate * UINT64_C(0x400000000000), samples);
+	uint64_t fcw = frequency * SINTABLE_SIZE / sample_rate * UINT64_C(0x400000000000);
+
+	if (frequency > 2)
+		play_fcw(fcw, samples);
+	else
+		play_silence(samples);
 }
 
 
