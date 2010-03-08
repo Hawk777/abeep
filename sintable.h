@@ -6,6 +6,7 @@
 extern const int16_t SINTABLE_PHYSICAL[SINTABLE_PHYSICAL_SIZE];
 
 #define SINTABLE_SIZE (SINTABLE_PHYSICAL_SIZE * 4)
+static int16_t sintable(unsigned int index) __attribute__((__unused__));
 static int16_t sintable(unsigned int index) {
 	if (index < SINTABLE_PHYSICAL_SIZE)
 		return SINTABLE_PHYSICAL[index];
