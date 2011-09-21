@@ -258,6 +258,8 @@ static void play_silence(unsigned int samples) {
 		while (samples--)
 			play_sample(0);
 	}
+
+	last_fcw = 0;
 }
 
 
