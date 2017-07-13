@@ -1,4 +1,4 @@
-CFLAGS=-Wall -Wextra
+CFLAGS=-Wall -Wextra -march=native -O2
 EXEC_NAME=abeep
 INSTALL_DIR=/usr/bin
 
