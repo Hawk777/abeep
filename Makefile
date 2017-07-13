@@ -2,7 +2,7 @@ CFLAGS=-Wall -Wextra -march=native -O2
 EXEC_NAME=abeep
 INSTALL_DIR=/usr/local/bin
 
-default : abeep
+default : $(EXEC_NAME)
 
 clean :
 	rm $(EXEC_NAME)
